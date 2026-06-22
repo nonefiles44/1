@@ -2,156 +2,545 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cumcum & Düşmüş Melek: Aşk Senfonisi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minik Ördek - Basit Pixel Art Oyun</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
     <style>
-        body { margin: 0; overflow: hidden; background: #fdf2f8; font-family: 'Inter', sans-serif; }
-        #game-canvas { display: block; width: 100vw; height: 100vh; cursor: pointer; }
-        .modal { backdrop-filter: blur(8px); }
+        body {
+            background-color: #2d3748; /* Koyu gri/mavi arka plan */
+            color: white;
+            font-family: 'Press Start 2P', monospace;
+            margin: 0;
+            overflow: hidden; /* Kaydırma çubuklarını gizle */
+            touch-action: none; /* Mobilde istenmeyen kaydırmaları engelle */
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #87CEEB; /* Gökyüzü mavisi */
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* En-boy oranını koruyarak tam ekran kapla */
+            image-rendering: pixelated; /* Pixel art görüntüsünü keskin tutar */
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; /* UI arkasındaki canvas'a tıklamaya izin ver */
+        }
+
+        .screen {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border: 4px solid #fff;
+            border-radius: 10px;
+            text-align: center;
+            pointer-events: auto;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        h1 {
+            color: #4ade80; /* Açık yeşil */
+            font-size: 20px;
+            text-shadow: 2px 2px #000;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        p {
+            font-size: 10px;
+            line-height: 1.5;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        button {
+            background-color: #4ade80;
+            color: #000;
+            border: 2px solid #fff;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        #score-display {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 14px;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 10;
+        }
+
+        @keyframes heartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes happyBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
     </style>
 </head>
 <body>
 
-    <div id="game-container" class="relative w-screen h-screen">
-        <canvas id="game-canvas"></canvas>
+    <div id="game-container">
+        <div id="score-display">Skor: 0</div>
+        <canvas id="gameCanvas" width="320" height="180"></canvas>
+        
+        <div id="ui-layer">
+            <!-- Başlangıç Ekranı -->
+            <div id="start-screen" class="screen active">
+                <h1>MİNİK ÖRDEK</h1>
+                <p>Zıplamak için EKRANA DOKUN<br>veya BOŞLUK tuşuna bas.</p>
+                <p style="color: #fbbf24;">Kutulardan kaç!</p>
+                <button id="start-btn">OYNA</button>
+            </div>
+            
+            <!-- Oyun Bitti Ekranı -->
+            <div id="game-over-screen" class="screen">
+                <h1 style="color: #f87171;">YAKALANDIN!</h1>
+                <p id="final-score">Skor: 0</p>
+                <button id="restart-btn">TEKRAR DENE</button>
+            </div>
 
-        <!-- UI -->
-        <div id="ui-layer" class="absolute top-0 left-0 w-full p-6 flex justify-between items-start pointer-events-none">
-            <div id="stats" class="hidden bg-white/80 p-4 rounded-2xl shadow-xl backdrop-blur-md border border-pink-100 pointer-events-auto">
-                <div class="flex gap-8">
-                    <div>
-                        <div class="text-xs font-bold text-pink-500 uppercase tracking-widest mb-1">Aşk Enerjisi</div>
-                        <div class="w-48 h-4 bg-gray-100 rounded-full overflow-hidden">
-                            <div id="progress" class="h-full bg-pink-500 w-0 transition-all duration-300"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">Kalan Süre</div>
-                        <div id="timer" class="text-2xl font-black text-blue-600">30s</div>
-                    </div>
+            <!-- Evlenme Teklifi Ekranı -->
+            <div id="proposal-screen" class="screen">
+                <h1 style="color: #f472b6; font-size: 22px; animation: heartPulse 1s infinite;">SÜRPRİZZZ! 💖</h1>
+                <p style="font-size: 12px; margin: 10px 0;">Benimle evlenir misin?</p>
+                <div style="display: flex; gap: 15px; margin-top: 10px;">
+                    <button id="yes-btn" style="background-color: #ec4899; color: white; border-color: #fbcfe8;">EVET!</button>
+                    <button id="no-btn" style="background-color: #64748b; color: white; border-color: #94a3b8; transition: transform 0.2s ease; position: relative; z-index: 20;">HAYIR</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Start Modal -->
-        <div id="start-modal" class="modal absolute inset-0 flex items-center justify-center bg-black/30">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm m-4 border-4 border-pink-200">
-                <div class="text-6xl mb-4">🦆✨💖</div>
-                <h1 class="text-3xl font-black text-pink-600 mb-2">Aşk Zamanı!</h1>
-                <p class="text-gray-600 mb-6">Cumcum, Düşmüş Melek'e ulaşmak için sabırsızlanıyor! Aşk enerjisi otomatik doluyor, keyfini çıkar.</p>
-                <button onclick="startGame()" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95">
-                    Maceraya Başla!
-                </button>
-            </div>
-        </div>
-
-        <!-- Proposal Modal -->
-        <div id="proposal-modal" class="hidden modal absolute inset-0 flex items-center justify-center bg-black/40">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-md m-4 animate-in fade-in zoom-in duration-500">
-                <div id="modal-content">
-                    <div class="text-6xl mb-4">💍</div>
-                    <h2 class="text-3xl font-bold text-pink-600 mb-2">Beni Seçer Misin?</h2>
-                    <p class="text-gray-600 mb-6">Cumcum'un aşkı her engeli aştı ve kalbini Düşmüş Melek'e sundu.</p>
-                    <button onclick="marry()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full">EVET! 💖</button>
-                </div>
+            <!-- Kutlama Ekranı -->
+            <div id="celebrate-screen" class="screen">
+                <h1 style="color: #f472b6; animation: happyBounce 1s infinite;">SONSUZA DEK MUTLU!</h1>
+                <p style="font-size: 12px; margin-top: 15px;">❤️ Seni Çok Seviyorum ❤️</p>
             </div>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('game-canvas');
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const startModal = document.getElementById('start-modal');
-        const proposalModal = document.getElementById('proposal-modal');
-        const progressBar = document.getElementById('progress');
-        const timerDisplay = document.getElementById('timer');
-        const stats = document.getElementById('stats');
 
-        let isRunning = false;
+        // Sabit yükseklik, dinamik genişlik ile tam ekran pixel art
+        const LOGICAL_HEIGHT = 180;
+        let GAME_WIDTH = 320;
+        let GAME_HEIGHT = LOGICAL_HEIGHT;
+        let GROUND_Y = 150; // Yerin konumu dinamik olacak
+
+        // Oyun Durumu Değişkenleri
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
         let score = 0;
-        let timeLeft = 30;
-        let gameTimer;
-        let duck = { x: 100, y: 300, vy: 0, grounded: false };
-        let items = [];
+        let gameSpeed = 3;
+        let frameCount = 0;
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize);
-        resize();
+        // UI Elementleri
+        const screens = {
+            start: document.getElementById('start-screen'),
+            gameOver: document.getElementById('game-over-screen'),
+            proposal: document.getElementById('proposal-screen'),
+            celebrate: document.getElementById('celebrate-screen')
+        };
+        const scoreUI = document.getElementById('score-display');
+        const finalScoreUI = document.getElementById('final-score');
 
-        function startGame() {
-            startModal.classList.add('hidden');
-            stats.classList.remove('hidden');
-            isRunning = true;
+        // Oyuncu (Ördek) Özellikleri
+        const player = {
+            x: 40,
+            y: GROUND_Y,
+            width: 28,
+            height: 24,
+            dy: 0, // Dikey hız
+            gravity: 0.4, // Yerçekimi (Düşmeyi yumuşattık)
+            jumpForce: -6, // Zıplama gücü
+            isGrounded: true
+        };
+
+        // Engeller (Kutular) Dizisi
+        let obstacles = [];
+
+        function resizeCanvas() {
+            // Ekran en-boy oranını alıp mantıksal genişliği hesaplıyoruz
+            const aspect = window.innerWidth / window.innerHeight;
+            GAME_WIDTH = Math.floor(LOGICAL_HEIGHT * aspect);
             
-            gameTimer = setInterval(() => {
-                if (!isRunning) return;
-                timeLeft--;
-                timerDisplay.textContent = `${timeLeft}s`;
-                if (timeLeft <= 0) win();
-            }, 1000);
-
-            animate();
-        }
-
-        window.addEventListener('mousedown', () => { if(duck.grounded) { duck.vy = -15; duck.grounded = false; } });
-
-        function animate() {
-            if (!isRunning) return;
-
-            // Aşk enerjisi yavaş yavaş otomatik dolar
-            score += 0.35; 
-            progressBar.style.width = `${Math.min(score, 100)}%`;
-
-            duck.vy += 0.8;
-            duck.y += duck.vy;
-            if (duck.y > canvas.height - 150) { duck.y = canvas.height - 150; duck.vy = 0; duck.grounded = true; }
-
-            if (Math.random() < 0.03) {
-                items.push({ x: canvas.width, y: Math.random() * 200 + 100, type: Math.random() > 0.5 ? 'heart' : 'obstacle' });
+            // Canvas'ın iç çözünürlüğünü güncelliyoruz
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            
+            // Zeminin yüksekliğini ekranın alt kısmına hizalıyoruz
+            GROUND_Y = GAME_HEIGHT - 35; 
+            
+            // Oyuncu yerdeyse veya ekran küçüldüğünde havada kalmaması için pozisyonu güncelle
+            if (player.isGrounded || player.y > GROUND_Y) {
+                player.y = GROUND_Y;
+                player.isGrounded = true;
+                player.dy = 0;
             }
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#fce7f3';
-            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-
-            ctx.font = '50px sans-serif';
-            ctx.fillText('🦆', duck.x, duck.y);
-
-            items.forEach((item, index) => {
-                item.x -= 6;
-                ctx.fillText(item.type === 'heart' ? '💖' : '📦', item.x, item.y);
-
-                if (Math.hypot(duck.x - item.x, duck.y - item.y) < 40) {
-                    if (item.type === 'heart') {
-                        score += 5;
-                        items.splice(index, 1);
-                    } else {
-                        items.splice(index, 1);
-                    }
-                }
+            // Sahnedeki tüm engelleri yeni zemin hizasına çek
+            obstacles.forEach(obs => {
+                obs.y = GROUND_Y;
             });
-
-            if (score >= 100) win();
-
-            requestAnimationFrame(animate);
         }
 
-        function win() {
-            if (!isRunning) return;
-            isRunning = false;
-            clearInterval(gameTimer);
-            proposalModal.classList.remove('hidden');
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // İlk yüklemede boyutları ayarla
+
+        // Çok basit pixel art Ördek çizimi
+        function drawDuck(x, y) {
+            let drawY = y - player.height;
+
+            // Gövde (Sarı)
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(x + 2, drawY + 10, 14, 10); // Vücut
+            ctx.fillRect(x + 10, drawY + 2, 12, 10); // Kafa
+            ctx.fillRect(x, drawY + 14, 4, 4);       // Kuyruk kısmı
+
+            // Göz (Siyah)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 18, drawY + 4, 2, 2);
+
+            // Gaga (Turuncu)
+            ctx.fillStyle = '#ea580c';
+            ctx.fillRect(x + 22, drawY + 6, 6, 4);
+
+            // Kanat (Daha koyu sarı)
+            ctx.fillStyle = '#ca8a04';
+            if (!player.isGrounded) {
+                // Zıplarken kanat çırpma
+                ctx.fillRect(x + 4, drawY + 8, 8, 4);
+            } else {
+                // Yerdeyken normal kanat
+                ctx.fillRect(x + 6, drawY + 12, 8, 4);
+            }
+
+            // Ayaklar (Turuncu)
+            ctx.fillStyle = '#ea580c';
+            if (player.isGrounded) {
+                // Koşma Animasyonu
+                let walkCycle = Math.floor(frameCount / 5) % 2;
+                if (walkCycle === 0) {
+                    ctx.fillRect(x + 6, drawY + 20, 2, 4);
+                    ctx.fillRect(x + 6, drawY + 22, 4, 2); // Sağ palet
+                    ctx.fillRect(x + 14, drawY + 20, 2, 2); // Sol bacak yukarıda
+                } else {
+                    ctx.fillRect(x + 6, drawY + 20, 2, 2); // Sağ bacak yukarıda
+                    ctx.fillRect(x + 14, drawY + 20, 2, 4);
+                    ctx.fillRect(x + 14, drawY + 22, 4, 2); // Sol palet
+                }
+            } else {
+                // Zıplarken ayaklar geri çekilmiş
+                ctx.fillRect(x + 4, drawY + 18, 4, 2);
+                ctx.fillRect(x + 12, drawY + 18, 4, 2);
+            }
         }
 
-        function marry() {
-            document.getElementById('modal-content').innerHTML = `
-                <div class="text-8xl mb-4 animate-bounce">🎉</div>
-                <h2 class="text-3xl font-bold text-green-600">Mutlu Sonsuzluk!</h2>
-                <p class="text-gray-600 mt-2">Cumcum ve Düşmüş Melek artık birlikteler! 🦆💍😇</p>
-                <button onclick="location.reload()" class="mt-6 text-pink-500 underline">Tekrar Oyna</button>
-            `;
+        // Çok basit pixel art Kutu/Engel çizimi
+        function drawObstacle(x, y, width, height) {
+            ctx.fillStyle = '#b45309'; // Koyu kahverengi
+            ctx.fillRect(x, y - height, width, height);
+            
+            // İç detay (Açık kahverengi çizgi)
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(x + 2, y - height + 2, width - 4, height - 4);
+            
+            // Siyah çerçeve efekti
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y - height, width, height);
         }
+
+
+        // Yeni engel oluşturma
+        function spawnObstacle() {
+            // Rastgele boyutlar
+            const width = 14 + Math.random() * 10;
+            const height = 14 + Math.random() * 15;
+            
+            obstacles.push({
+                x: GAME_WIDTH,
+                y: GROUND_Y,
+                width: width,
+                height: height
+            });
+        }
+
+        // Oyunu sıfırlama
+        function resetGame() {
+            player.y = GROUND_Y;
+            player.dy = 0;
+            player.isGrounded = true;
+            obstacles = [];
+            score = 0;
+            gameSpeed = 3;
+            frameCount = 0;
+            scoreUI.innerText = `Skor: 0`;
+        }
+
+        // Menü geçişleri
+        function setScreen(screenName) {
+            for (let key in screens) {
+                screens[key].classList.remove('active');
+            }
+            if (screenName !== 'PLAYING') {
+                screens[screenName].classList.add('active');
+            }
+        }
+
+        // Zıplama fonksiyonu (Çok kolay zıplama)
+        function jump() {
+            if (gameState === 'PLAYING' && player.isGrounded) {
+                player.dy = player.jumpForce;
+                player.isGrounded = false;
+            } else if (gameState === 'START' || gameState === 'GAMEOVER') {
+                // Herhangi bir tuşa/ekrana basınca oyunu başlat
+                startGame();
+            }
+        }
+
+        function startGame() {
+            if (gameState === 'PLAYING') return;
+            resetGame();
+            gameState = 'PLAYING';
+            setScreen('PLAYING');
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            finalScoreUI.innerText = `Skor: ${Math.floor(score)}`;
+            setScreen('gameOver');
+        }
+
+
+        // Basit Dikdörtgen Çarpışma Testi
+        function checkCollision(rect1, rect2) {
+            // rect2 (engel) origin noktası alt-sol olduğu için koordinatlarını düzeltiyoruz
+            const obsX = rect2.x;
+            const obsY = rect2.y - rect2.height;
+            const obsW = rect2.width;
+            const obsH = rect2.height;
+
+            // Oyuncu (Ördek) origin düzeltmesi
+            const px = rect1.x;
+            const py = rect1.y - rect1.height;
+            const pw = rect1.width;
+            const ph = rect1.height;
+
+            // Çarpışma toleransı (Oyun çok zor olmasın diye hitbox'ı biraz küçültüyoruz)
+            const tolerance = 3; 
+
+            return (
+                px + pw - tolerance > obsX &&
+                px + tolerance < obsX + obsW &&
+                py + ph - tolerance > obsY &&
+                py + tolerance < obsY + obsH
+            );
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            // 100 Puan Kontrolü - Sürpriz Zamanı!
+            if (score >= 100) {
+                gameState = 'PROPOSAL';
+                setScreen('proposal');
+                return; // Oyunu dondur
+            }
+
+            frameCount++;
+            score += 0.05; // Skoru yavaşça artır
+            scoreUI.innerText = `Skor: ${Math.floor(score)}`;
+
+            // Zamanla oyun biraz hızlansın (Çok zor olmaması için maksimum hız sınırı koyduk)
+            if (frameCount % 600 === 0 && gameSpeed < 6) {
+                gameSpeed += 0.5;
+            }
+
+            // Oyuncu Fiziği (Yerçekimi)
+            player.dy += player.gravity;
+            player.y += player.dy;
+
+            // Yere çarpma kontrolü
+            if (player.y >= GROUND_Y) {
+                player.y = GROUND_Y;
+                player.dy = 0;
+                player.isGrounded = true;
+            }
+
+            // Engel Oluşturma (Rastgele aralıklarla)
+            // Hız arttıkça engellerin arası açılmalı ki atlanabilsin
+            const spawnRate = Math.max(70, 120 - gameSpeed * 5); 
+            if (frameCount % Math.floor(spawnRate) === 0) {
+                // Bazen boşluk bırakmak için %30 ihtimalle engel oluşturma
+                if (Math.random() > 0.3) {
+                    spawnObstacle();
+                }
+            }
+
+            // Engelleri Hareket Ettirme ve Silme
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= gameSpeed;
+
+                // Çarpışma Kontrolü - ARTIK OYUN BİTMİYOR, İÇİNDEN GEÇİYOR
+                if (checkCollision(player, obs)) {
+                    obs.isColliding = true; // İçinden geçerken görsel efekt için işaretle
+                } else {
+                    obs.isColliding = false;
+                }
+
+                // Ekrandan çıkanları sil
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+
+        function draw() {
+            // Arka planı temizle (Gökyüzü)
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Güneş çizimi
+            ctx.fillStyle = '#FDE047';
+            ctx.fillRect(GAME_WIDTH - 60, 20, 20, 20);
+
+            // Bulutlar (Basit beyaz kutular)
+            ctx.fillStyle = '#FFF';
+            ctx.globalAlpha = 0.8;
+            let cloudOffset = (frameCount * 0.2) % GAME_WIDTH;
+            ctx.fillRect(GAME_WIDTH - cloudOffset, 40, 40, 15);
+            ctx.fillRect(GAME_WIDTH - cloudOffset + 10, 30, 20, 10);
+            
+            let cloudOffset2 = (frameCount * 0.1) % GAME_WIDTH;
+            ctx.fillRect(100 - cloudOffset2, 60, 30, 10);
+            ctx.globalAlpha = 1.0;
+
+            // Zemin Çizimi
+            ctx.fillStyle = '#22c55e'; // Çim yeşili
+            ctx.fillRect(0, GROUND_Y, GAME_WIDTH, GAME_HEIGHT - GROUND_Y);
+            ctx.fillStyle = '#166534'; // Toprak rengi detay
+            ctx.fillRect(0, GROUND_Y + 5, GAME_WIDTH, GAME_HEIGHT - GROUND_Y - 5);
+
+            // Engelleri Çiz
+            for (let obs of obstacles) {
+                // Eğer içinden geçiliyorsa kutuyu yarı saydam yap
+                if (obs.isColliding) {
+                    ctx.globalAlpha = 0.4;
+                } else {
+                    ctx.globalAlpha = 1.0;
+                }
+                drawObstacle(obs.x, obs.y, obs.width, obs.height);
+                ctx.globalAlpha = 1.0; // Saydamlığı geri al (diğer çizimler etkilenmesin)
+            }
+
+            // Oyuncuyu Çiz
+            drawDuck(player.x, player.y);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Kontroller (Klavye)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                jump();
+            }
+        });
+
+        // Kontroller (Dokunmatik ekran / Fare)
+        // Bütün ekrana tıklamayı/dokunmayı algıla
+        document.getElementById('game-container').addEventListener('mousedown', jump);
+        document.getElementById('game-container').addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Ekranın kaymasını önle
+            jump();
+        }, { passive: false });
+
+        // UI Butonları
+        document.getElementById('start-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); // Butona tıklayınca oyunun zıplamasını engelle
+            startGame();
+        });
+        document.getElementById('restart-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            startGame();
+        });
+
+        // Evlenme Teklifi Butonları
+        document.getElementById('yes-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            gameState = 'CELEBRATE';
+            setScreen('celebrate');
+        });
+
+        // "Hayır" butonundan kaçma mekaniği (Eğlenceli detay)
+        const noBtn = document.getElementById('no-btn');
+        const dodgeNoBtn = (e) => {
+            e.preventDefault(); // Mobilde dokunmayı/tıklamayı engelle
+            // Rastgele bir yöne kaçır
+            const maxX = 80;
+            const maxY = 60;
+            const randomX = (Math.random() * maxX * 2) - maxX;
+            const randomY = (Math.random() * maxY * 2) - maxY;
+            noBtn.style.transform = `translate(${randomX}px, ${randomY}px)`;
+        };
+        // Fare üstüne gelince veya dokunulmaya çalışılınca kaçsın
+        noBtn.addEventListener('mouseover', dodgeNoBtn);
+        noBtn.addEventListener('touchstart', dodgeNoBtn, { passive: false });
+        noBtn.addEventListener('click', dodgeNoBtn);
+
+        // Oyunu Başlat
+        resetGame();
+        gameLoop();
+
     </script>
 </body>
 </html>
